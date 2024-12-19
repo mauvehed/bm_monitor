@@ -1,10 +1,13 @@
 # adapt the following variables to your needs
-talkgroups = [1234,4567] # Talkgroups to monitor, seperated by commas
-callsigns = ['WA1ABC','W1AW'] # Callsigns to monitor, seperated by commas
-noisy_calls = ["L1DHAM", "N0CALL", "N0C4LL"] # Noisy calls signs that will be ignored
+talkgroups = [312752,98638] # Talkgroups to monitor, seperated by commas
+callsigns = [] # Callsigns to monitor, seperated by commas
+noisy_calls = [] # Noisy calls signs that will be ignored
 min_duration = 0 # Min. duration of a QSO to qualify for a push notification
 min_silence = 300 # Min. time in seconds after the last QSO before a new push notification will be send
 verbose = True # Enable extra messages (console only)
+thread_map = {
+    "312752": "1319353057267683490",  # Replace with actual talkgroup and thread IDs
+}
 
 # Pushover configuration
 pushover = False # Enable or disable notifications via Pushover
@@ -27,5 +30,5 @@ dapnet_callsigns = ["MYCALL"]
 dapnet_txgroup = "dl-all"
 
 # Discord Configuration
-discord = False
-discord_wh_url = 'DISCORD_WEBHOOK_HERE'
+discord = True
+discord_wh_url = 'https://discord.com/api/webhooks/1319099638170783784/6aLLten73sHzq9hiNGCptVIKTl4q39WgweuGfRyiYe6hn9FHKzDLb7VOdVi3W0V5ccAB'
