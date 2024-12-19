@@ -100,7 +100,7 @@ def construct_message(c):
     out = ""
     duration = c["Stop"] - c["Start"]
     # convert unix time stamp to human readable format
-    time = dt.datetime.utcfromtimestamp(c["Start"]).strftime("%Y/%m/%d %H:%M")
+    time = dt.datetime.fromtimestamp(c["Start"], dt.timezone.utc).strftime("%Y/%m/%d %H:%M")
     # construct text message from various transmission properties
     out += c["SourceCall"] + ' (' + c["SourceName"] + ') was active on '
     out += str(tg) + ' (' + c["DestinationName"] + ') at '
