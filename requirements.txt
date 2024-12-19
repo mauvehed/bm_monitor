@@ -1,3 +1,4 @@
+python-socketio
+websocket-client
 requests
 discord-webhook
-python-socketio[client]
