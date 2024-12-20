@@ -3,9 +3,11 @@
 # Brandmeister Monitor
 # Developed by: Michael Clemens, DK1MI
 # Refactored by: Jeff Lehman, N8ACL
+# Further Refactoring by: mauvehed, K0MVH
 # Current Version: 1.3 (Threading Support Added)
 # Original Script: https://codeberg.org/mclemens/pyBMNotify
 # Refactored Script: https://github.com/n8acl/bm_monitor
+# Current Script: https://github.com/mauvehed/bm_monitor
 
 #############################
 ##### Import Libraries and configs
