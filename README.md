@@ -35,6 +35,8 @@ This script will push a notification to the following services:
 
 ## Change Log
 
+- 12/20/2024 - Point Release 1.3.1 - Add TalkerAlias compatibility when posting to Discord
+
 - 12/19/2024 - Minor Update Release 1.3 - Add functionality to post Discord messages to Threads
 
 - 05/20/2024 - Minor Update Release 1.2 - Added Logic to handle multiple events from BM to correctly identify the event needed to send a notification message
