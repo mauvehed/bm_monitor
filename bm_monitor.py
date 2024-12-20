@@ -76,8 +76,14 @@ def construct_message(c):
     # convert unix time stamp to human readable format
     time = dt.datetime.fromtimestamp(c["Start"], dt.timezone.utc).astimezone(ZoneInfo("US/Central")).strftime("%Y/%m/%d %H:%M")
     # construct text message from various transmission properties
-    out += c["SourceCall"] + ' (' + c["SourceName"] + ') was active on '
-    out += str(tg) + ' (' + c["DestinationName"] + ') at '
+    if c["TalkerAlias"]:
+        out += c["TalkerAlias"] + 'was active on '
+    else:
+        out += c["SourceCall"] + ' (' + c["SourceName"] + ') was active on '
+    if c["DestinationName"] != '':
+        out += str(tg) + ' (' + c["DestinationName"] + ') at '
+    else:
+        out += str(tg) + ' at '
     out += time + ' (' + str(duration) + ' seconds) US/Central'
     # finally return the text message
     return out
@@ -95,11 +101,15 @@ def on_mqtt(data):
 
     tg = call["DestinationID"]
     callsign = call["SourceCall"]
+    talkeralias = call["TalkerAlias"]
     start_time = call["Start"]
     stop_time = call["Stop"]
     event = call["Event"]
     notify = False
     now = int(time.time())
+
+    #if cfg.verbose:
+    #    talkeralias != '' and print("TalkerAlias: " + talkeralias)
 
     if cfg.verbose and callsign in cfg.noisy_calls:
         print("ignored noisy ham " + callsign)
@@ -136,6 +146,9 @@ def on_mqtt(data):
             if cfg.discord:
                 thread_id = cfg.thread_map.get(str(tg))  # Fetch thread ID for the talkgroup
                 push_discord(cfg.discord_wh_url, construct_message(call), thread_id=thread_id)
+                if cfg.verbose:
+                    #print("TalkerAlias: " + talkeralias)
+                    print("Discord message " + construct_message(call) + " sent to thread " + str(thread_id) + " for TG " + str(tg))
 
 @sio.event
 def disconnect():
