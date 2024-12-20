@@ -6,7 +6,6 @@
 # Current Version: 1.3 (Threading Support Added)
 # Original Script: https://codeberg.org/mclemens/pyBMNotify
 # Refactored Script: https://github.com/n8acl/bm_monitor
-# Additional updates: https://github.com/mauvehed/bm_monitor
 
 #############################
 ##### Import Libraries and configs
@@ -16,6 +15,7 @@ import datetime as dt
 import time
 import socketio
 import http.client, urllib
+from zoneinfo import ZoneInfo
 
 # library only needed if Discord is configured in config.py
 if cfg.discord:
@@ -72,11 +72,11 @@ def construct_message(c):
     out = ""
     duration = c["Stop"] - c["Start"]
     # convert unix time stamp to human readable format
-    time = dt.datetime.utcfromtimestamp(c["Start"]).strftime("%Y/%m/%d %H:%M")
+    time = dt.datetime.fromtimestamp(c["Start"], dt.timezone.utc).astimezone(ZoneInfo("US/Central")).strftime("%Y/%m/%d %H:%M")
     # construct text message from various transmission properties
     out += c["SourceCall"] + ' (' + c["SourceName"] + ') was active on '
     out += str(tg) + ' (' + c["DestinationName"] + ') at '
-    out += time + ' (' + str(duration) + ' seconds) UTC'
+    out += time + ' (' + str(duration) + ' seconds) US/Central'
     # finally return the text message
     return out
 
@@ -101,7 +101,7 @@ def on_mqtt(data):
 
     if cfg.verbose and callsign in cfg.noisy_calls:
         print("ignored noisy ham " + callsign)
-    
+
     elif event == 'Session-Stop' and callsign != '':
         if callsign in cfg.callsigns:
             if callsign not in last_OM_activity:
