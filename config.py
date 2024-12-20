@@ -1,10 +1,10 @@
 # adapt the following variables to your needs
 talkgroups = [] # Talkgroups to monitor, seperated by commas
-callsigns = [] # Callsigns to monitor, seperated by commas
-noisy_calls = [] # Noisy calls signs that will be ignored
+callsigns = ['AB0CDE','A9BCD'] # Callsigns to monitor, seperated by commas
+noisy_calls = ["CD1E","A3ZE"] # Noisy calls signs that will be ignored
 min_duration = 0 # Min. duration of a QSO to qualify for a push notification
 min_silence = 300 # Min. time in seconds after the last QSO before a new push notification will be send
-verbose = True # Enable extra messages (console only)
+verbose = False # Enable extra messages (console visible only)
 thread_map = {
     "123456": "12345678901234567890",  # Replace with actual talkgroup and thread IDs
 }
