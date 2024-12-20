@@ -77,7 +77,7 @@ def construct_message(c):
     time = dt.datetime.fromtimestamp(c["Start"], dt.timezone.utc).astimezone(ZoneInfo("US/Central")).strftime("%Y/%m/%d %H:%M")
     # construct text message from various transmission properties
     if c["TalkerAlias"]:
-        out += c["TalkerAlias"] + 'was active on '
+        out += c["TalkerAlias"] + ' was active on '
     else:
         out += c["SourceCall"] + ' (' + c["SourceName"] + ') was active on '
     if c["DestinationName"] != '':
