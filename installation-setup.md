@@ -71,6 +71,12 @@ cd bm_monitor
 
 pip3 install -r requirements.txt
 ```
+* Users may want to also consider tmux in lieu of screen as it is more modern and allows quoting of its escape character
+* The pip3 may not fully succeed.  If you're comfortable with bashing your python environment:
+** pip3 install --upgrade --force-reinstall -r requirements.txt
+*** You are solely responsible for the health of your system.
+*** Conversion of these instructions to use a venv for change isolation would be most welcome.
+
 ---
 
 ## Configure the Script
