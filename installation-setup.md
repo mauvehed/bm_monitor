@@ -65,7 +65,7 @@ sudo apt-get update && sudo apt-get -y upgrade && sudo apt-get -y dist-upgrade
 
 sudo apt-get install python3 python3-pip git screen
 
-git clone https://github.com/n8acl/bm_monitor.git
+git clone https://github.com/mauvehed/bm_monitor.git
 
 cd bm_monitor
 
