@@ -163,4 +163,7 @@ cython_debug/
 # Snyk vuln scanner
 .dccache
 
+# Config file
+config.ini
+
 # End of https://www.toptal.com/developers/gitignore/api/flask,python,visualstudiocode
