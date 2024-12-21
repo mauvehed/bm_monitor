@@ -19,6 +19,18 @@ import time
 import socketio
 import http.client, urllib
 from zoneinfo import ZoneInfo
+import logging
+import signal
+import sys
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG if cfg.verbose else logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler()  # Ensure logs are sent to stdout
+    ]
+)
 
 # library only needed if Discord is configured in config.py
 if cfg.discord:
@@ -37,19 +49,42 @@ sio = socketio.Client()
 last_TG_activity = {}
 last_OM_activity = {}
 
+logging.debug("Configuration loaded:")
+logging.debug(f"pushover_token: {cfg.pushover_token}")
+logging.debug(f"pushover_user: {cfg.pushover_user}")
+logging.debug(f"discord_wh_url: {cfg.discord_wh_url}")
+logging.debug(f"telegram_api_id: {cfg.telegram_api_id}")
+logging.debug(f"telegram_api_hash: {cfg.telegram_api_hash}")
+logging.debug(f"talkgroups: {cfg.talkgroups}")
+logging.debug(f"callsigns: {cfg.callsigns}")
+logging.debug(f"noisy_calls: {cfg.noisy_calls}")
+
 #############################
 ##### Define Functions
 
+# Handle graceful shutdown on Ctrl+C or SIGTERM
+def signal_handler(sig, frame):
+    logging.info("Shutting down gracefully...")
+    sio.disconnect()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
 # Send push notification via Pushover. Disabled if not configured in config.py
 def push_pushover(msg):
-    conn = http.client.HTTPSConnection("api.pushover.net:443")
-    conn.request("POST", "/1/messages.json",
-        urllib.parse.urlencode({
-        "token": cfg.pushover_token,
-        "user": cfg.pushover_user,
-        "message": msg,
-        }), { "Content-type": "application/x-www-form-urlencoded" })
-    conn.getresponse()
+    try:
+        conn = http.client.HTTPSConnection("api.pushover.net:443")
+        conn.request("POST", "/1/messages.json",
+            urllib.parse.urlencode({
+            "token": cfg.pushover_token,
+            "user": cfg.pushover_user,
+            "message": msg,
+            }), { "Content-type": "application/x-www-form-urlencoded" })
+        conn.getresponse()
+        logging.info("Pushover notification sent.")
+    except Exception as e:
+        logging.error(f"Failed to send Pushover notification: {e}")
 
 # Send notification to Discord Channel or Thread via webhook
 def push_discord(wh_url, msg, thread_id=None):
@@ -59,15 +94,23 @@ def push_discord(wh_url, msg, thread_id=None):
     :param msg: Message content
     :param thread_id: Optional thread ID for posting to a specific thread
     """
-    if thread_id:
-        wh_url = f"{wh_url}?thread_id={thread_id}"
-    webhook = DiscordWebhook(url=wh_url, content=msg)
-    response = webhook.execute()
+    try:
+        if thread_id:
+            wh_url = f"{wh_url}?thread_id={thread_id}"
+        webhook = DiscordWebhook(url=wh_url, content=msg)
+        response = webhook.execute()
+        logging.info("Discord notification sent.")
+    except Exception as e:
+        logging.error(f"Failed to send Discord notification: {e}")
 
 # Send pager notification via DAPNET. Disabled if not configured in config.py
 def push_dapnet(msg):
-    dapnet_json = json.dumps({"text": msg, "callSignNames": cfg.dapnet_callsigns, "transmitterGroupNames": [cfg.dapnet_txgroup], "emergency": True})
-    response = requests.post(cfg.dapnet_url, data=dapnet_json, auth=HTTPBasicAuth(cfg.dapnet_user,cfg.dapnet_pass))
+    try:
+        dapnet_json = json.dumps({"text": msg, "callSignNames": cfg.dapnet_callsigns, "transmitterGroupNames": [cfg.dapnet_txgroup], "emergency": True})
+        response = requests.post(cfg.dapnet_url, data=dapnet_json, auth=HTTPBasicAuth(cfg.dapnet_user,cfg.dapnet_pass))
+        logging.info("DAPNET notification sent.")
+    except Exception as e:
+        logging.error(f"Failed to send DAPNET notification: {e}")
 
 # Construct the message to be sent
 def construct_message(c):
@@ -86,7 +129,7 @@ def construct_message(c):
     else:
         out += str(tg) + ' at '
     out += time + ' (' + str(duration) + ' seconds) US/Central'
-    # finally return the text message
+    logging.debug(f"Constructed message: {out}")
     return out
 
 #############################
@@ -94,10 +137,13 @@ def construct_message(c):
 
 @sio.event
 def connect():
-    print('connection established')
+    logging.info('Connection established with Brandmeister network.')
 
 @sio.on("mqtt")
 def on_mqtt(data):
+    if cfg.verbose and isinstance(data['payload'], dict) and data['payload'].get('DestinationID') in cfg.talkgroups:
+        logging.debug(f"Filtered MQTT event: Event={data['payload'].get('Event', 'Unknown')} DestinationID={data['payload'].get('DestinationID')} SourceCall={data['payload'].get('SourceCall')}")
+
     call = json.loads(data['payload'])
 
     tg = call["DestinationID"]
@@ -109,19 +155,22 @@ def on_mqtt(data):
     notify = False
     now = int(time.time())
 
-    #if cfg.verbose:
-    #    talkeralias != '' and print("TalkerAlias: " + talkeralias)
-
     if cfg.verbose and callsign in cfg.noisy_calls:
-        print("ignored noisy ham " + callsign)
+        logging.info(f"Ignored noisy ham {callsign}")
 
     elif event == 'Session-Stop' and callsign != '':
+        if cfg.verbose:
+            if str(tg) in map(str, cfg.talkgroups):
+                logging.debug(f"Processing event: Event={event}, Callsign={callsign}, Talkgroup={tg}")
         if callsign in cfg.callsigns:
             if callsign not in last_OM_activity:
+                logging.debug(f"First activity recorded for {callsign}")
                 last_OM_activity[callsign] = 9999999
             inactivity = now - last_OM_activity[callsign]
-            if callsign not in last_OM_activity or inactivity >= cfg.min_silence:
+            logging.debug(f"Inactivity for {callsign}: {inactivity} seconds")
+            if inactivity >= cfg.min_silence:
                 if tg in cfg.talkgroups and stop_time > 0:
+                    logging.debug(f"Activity matches monitored talkgroups: {tg}")
                     last_TG_activity[tg] = now
                 last_OM_activity[callsign] = now
                 notify = True
@@ -134,7 +183,7 @@ def on_mqtt(data):
                 if tg not in last_TG_activity or inactivity >= cfg.min_silence:
                     notify = True
                 elif cfg.verbose:
-                    print("ignored activity in TG " + str(tg) + " from " + callsign + ": last action " + str(inactivity) + " seconds ago.")
+                    logging.info(f"Ignored activity in TG {tg} from {callsign}: last action {inactivity} seconds ago.")
                 last_TG_activity[tg] = now
 
         if notify:
@@ -148,12 +197,11 @@ def on_mqtt(data):
                 thread_id = cfg.thread_map.get(str(tg))  # Fetch thread ID for the talkgroup
                 push_discord(cfg.discord_wh_url, construct_message(call), thread_id=thread_id)
                 if cfg.verbose:
-                    #print("TalkerAlias: " + talkeralias)
-                    print("Discord message " + construct_message(call) + " sent to thread " + str(thread_id) + " for TG " + str(tg))
+                    logging.info(f"Discord message {construct_message(call)} sent to thread {thread_id} for TG {tg}")
 
 @sio.event
 def disconnect():
-    print('disconnected from server')
+    logging.warning('Disconnected from Brandmeister network.')
 
 #############################
 ##### Main Program
