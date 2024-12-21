@@ -10,11 +10,8 @@ COPY requirements.txt /app/requirements.txt
 # Install any necessary dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the current directory contents into the container at /app
+# Copy the current directory contents into the container
 COPY . /app
 
-# Define environment variables (optional, can also set dynamically at runtime)
-ENV DEBUG=true
-
 # Run the Python script
-CMD ["python", "bm_monitor.py"]
+ENTRYPOINT ["python", "/app/bm_monitor.py"]
