@@ -65,12 +65,18 @@ sudo apt-get update && sudo apt-get -y upgrade && sudo apt-get -y dist-upgrade
 
 sudo apt-get install python3 python3-pip git screen
 
-git clone https://github.com/n8acl/bm_monitor.git
+git clone https://github.com/mauvehed/bm_monitor.git
 
 cd bm_monitor
 
 pip3 install -r requirements.txt
 ```
+* Users may want to also consider tmux in lieu of screen as it is more modern and allows quoting of its escape character
+* The pip3 may not fully succeed.  If you're comfortable with bashing your python environment:
+** pip3 install --upgrade --force-reinstall -r requirements.txt
+*** You are solely responsible for the health of your system.
+*** Conversion of these instructions to use a venv for change isolation would be most welcome.
+
 ---
 
 ## Configure the Script

@@ -2,3 +2,4 @@ python-socketio
 websocket-client
 requests
 discord-webhook
+configparser
