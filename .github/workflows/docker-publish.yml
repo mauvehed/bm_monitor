@@ -10,10 +10,18 @@ on:
     - cron: '37 5 * * *'
   push:
     branches: [ "main" ]
+    paths:
+      - 'Dockerfile'
+      - 'bm_monitor.py'
+
     # Publish semver tags as releases.
     tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'Dockerfile'
+      - 'bm_monitor.py'
+
 
 env:
   # Use docker.io for Docker Hub if empty
