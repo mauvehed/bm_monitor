@@ -10,6 +10,7 @@ ignore: # A list of paths or files which Sourcery will ignore.
 - env
 - .env
 - .tox
+- config.ini
 
 rule_settings:
   enable:
@@ -22,11 +23,11 @@ rule_settings:
   python_version: '3.11' # A string specifying the lowest Python version your project supports. Sourcery will not suggest refactorings requiring a higher Python version.
 
 github:
-  labels:
-  - refactor
-  - python
-  - priority-low
   ignore_labels:
   - sourcery-ignore
-  request_review: mauvehed
+  - documentation
+  - wontfix
+  request_review:
+      origin: owner
+      forked: author
   sourcery_branch: sourcery/{base_branch}
