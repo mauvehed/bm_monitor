@@ -1,3 +1,5 @@
+[![Dependabot Updates](https://github.com/mauvehed/bm_monitor/actions/workflows/dependabot/dependabot-updates/badge.svg)](https://github.com/mauvehed/bm_monitor/actions/workflows/dependabot/dependabot-updates)[![Docker Publish](https://github.com/mauvehed/bm_monitor/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/mauvehed/bm_monitor/actions/workflows/docker-publish.yml)[![CodeQL](https://github.com/mauvehed/bm_monitor/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/mauvehed/bm_monitor/actions/workflows/github-code-scanning/codeql)[![Pylint](https://github.com/mauvehed/bm_monitor/actions/workflows/pylint.yml/badge.svg)](https://github.com/mauvehed/bm_monitor/actions/workflows/pylint.yml)
+
 # Brandmeister Last Heard Monitor
 
 Brandmeister Last Heard Monitor/Notifier
