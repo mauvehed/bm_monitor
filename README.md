@@ -39,6 +39,8 @@ This script will push a notification to the following services:
 
 ## Change Log
 
+- 12/22/2024 - Point Release 1.3.2 - Add improved logging
+
 - 12/20/2024 - Point Release 1.3.1 - Add TalkerAlias compatibility when posting to Discord
 
 - 12/19/2024 - Minor Update Release 1.3 - Add functionality to post Discord messages to Threads
