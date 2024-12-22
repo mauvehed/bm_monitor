@@ -40,8 +40,19 @@ last_OM_activity = {}
 #############################
 ##### Define Functions
 
-# Send push notification via Pushover. Disabled if not configured in config.py
 def push_pushover(msg):
+    """Sends a notification to a Discord channel or thread via webhook.
+
+    This function sends a message to a specified Discord webhook URL, with optional support for posting to a specific thread. It utilizes the discord-webhook library to execute the webhook request.
+
+    Args:
+        wh_url (str): The Discord webhook URL.
+        msg (str): The message content to be sent.
+        thread_id (str, optional): The thread ID for posting to a specific thread. Defaults to None.
+
+    Returns:
+        None
+    """
     conn = http.client.HTTPSConnection("api.pushover.net:443")
     conn.request("POST", "/1/messages.json",
         urllib.parse.urlencode({
@@ -66,11 +77,38 @@ def push_discord(wh_url, msg, thread_id=None):
 
 # Send pager notification via DAPNET. Disabled if not configured in config.py
 def push_dapnet(msg):
+    """Sends a pager notification via the DAPNET (Digital Amateur Paging Network) service.
+
+    This function sends an emergency text message to specified DAPNET callsigns and transmitter groups using the configured DAPNET credentials. It prepares a JSON payload and submits a POST request to the DAPNET API.
+
+    Args:
+        msg (str): The message content to be sent via DAPNET.
+
+    Returns:
+        None
+    """
     dapnet_json = json.dumps({"text": msg, "callSignNames": cfg.dapnet_callsigns, "transmitterGroupNames": [cfg.dapnet_txgroup], "emergency": True})
     response = requests.post(cfg.dapnet_url, data=dapnet_json, auth=HTTPBasicAuth(cfg.dapnet_user,cfg.dapnet_pass))
 
 # Construct the message to be sent
 def construct_message(c):
+    """Constructs a formatted message string for a transmission event.
+
+    This function generates a human-readable description of a radio transmission, including details about the source, destination, time, and duration. It provides a comprehensive text representation of a communication event.
+
+    Args:
+        c (dict): A dictionary containing transmission details with keys including:
+            - DestinationID
+            - Stop
+            - Start
+            - TalkerAlias
+            - SourceCall
+            - SourceName
+            - DestinationName
+
+    Returns:
+        str: A formatted message string describing the transmission event.
+    """
     tg = c["DestinationID"]
     out = ""
     duration = c["Stop"] - c["Start"]
@@ -98,6 +136,16 @@ def connect():
 
 @sio.on("mqtt")
 def on_mqtt(data):
+    """Processes MQTT messages from the Brandmeister network and manages notification logic.
+
+    This function handles incoming MQTT messages by evaluating communication events, tracking activity across talkgroups and callsigns, and triggering notifications based on configured criteria. It determines whether a communication event meets the notification requirements and dispatches messages through configured notification channels.
+
+    Args:
+        data (dict): A dictionary containing the MQTT payload with communication event details.
+
+    Returns:
+        None
+    """
     call = json.loads(data['payload'])
 
     tg = call["DestinationID"]
@@ -108,9 +156,6 @@ def on_mqtt(data):
     event = call["Event"]
     notify = False
     now = int(time.time())
-
-    #if cfg.verbose:
-    #    talkeralias != '' and print("TalkerAlias: " + talkeralias)
 
     if cfg.verbose and callsign in cfg.noisy_calls:
         print("ignored noisy ham " + callsign)
