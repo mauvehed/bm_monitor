@@ -28,7 +28,8 @@ logging.basicConfig(
     level=logging.DEBUG if cfg.verbose else logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
-        logging.StreamHandler()  # Ensure logs are sent to stdout
+        logging.StreamHandler(),  # Ensure logs are sent to stdout
+        logging.FileHandler("brandmeister.log", encoding="utf-8")  # Log to file
     ]
 )
 
@@ -183,21 +184,15 @@ def connect():
 
 @sio.on("mqtt")
 def on_mqtt(data):
-    """Processes MQTT messages from the Brandmeister network and manages notification logic.
+    """Processes MQTT messages from the Brandmeister network and manages notification logic."""
 
-    This function handles incoming MQTT messages by evaluating communication events, tracking activity across talkgroups and callsigns, and triggering notifications based on configured criteria. It determines whether a communication event meets the notification requirements and dispatches messages through configured notification channels.
-
-    Args:
-        data (dict): A dictionary containing the MQTT payload with communication event details.
-
-    Returns:
-        None
-    """
     call = json.loads(data['payload'])
+
+    # Log all messages received
+    logging.info(f"Received Brandmeister message: {json.dumps(call, indent=2)}")
 
     tg = call["DestinationID"]
     callsign = call["SourceCall"]
-    talkeralias = call["TalkerAlias"]
     start_time = call["Start"]
     stop_time = call["Stop"]
     event = call["Event"]
