@@ -29,7 +29,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(),  # Ensure logs are sent to stdout
-        logging.FileHandler("brandmeister.log", encoding="utf-8")  # Log to file
+        #logging.FileHandler("brandmeister.log", encoding="utf-8")  # Log to file
     ]
 )
 
