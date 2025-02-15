@@ -39,6 +39,8 @@ This script will push a notification to the following services:
 
 ## Change Log
 
+- 01/15/2025 - Point Release 1.3.3 - Add debug log file "bm_logging.py" with all Brandmeister messages
+
 - 12/22/2024 - Point Release 1.3.2 - Add improved logging
 
 - 12/20/2024 - Point Release 1.3.1 - Add TalkerAlias compatibility when posting to Discord
