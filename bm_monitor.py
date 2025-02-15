@@ -24,14 +24,26 @@ import signal
 import sys
 
 # Configure logging
-logging.basicConfig(
-    level=logging.DEBUG if cfg.verbose else logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(),  # Ensure logs are sent to stdout
-        #logging.FileHandler("brandmeister.log", encoding="utf-8")  # Log to file
-    ]
-)
+# Create a logger
+logger = logging.getLogger("bm_logger")
+logger.setLevel(logging.DEBUG)  # Capture all messages
+
+# Create a handler for STDOUT (prints only INFO and above)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+
+# Create a handler for file (captures all DEBUG and above)
+file_handler = logging.FileHandler("bm_monitor.log", mode="w") # 'w' clears the file on app start
+file_handler.setLevel(logging.DEBUG)
+
+# Formatter (optional)
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+console_handler.setFormatter(formatter)
+file_handler.setFormatter(formatter)
+
+# Add handlers to logger
+logger.addHandler(console_handler)
+logger.addHandler(file_handler)
 
 # library only needed if Discord is configured in config.py
 if cfg.discord:
@@ -50,15 +62,15 @@ sio = socketio.Client()
 last_TG_activity = {}
 last_OM_activity = {}
 
-logging.debug("Configuration loaded:")
-logging.debug(f"pushover_token: {cfg.pushover_token}")
-logging.debug(f"pushover_user: {cfg.pushover_user}")
-logging.debug(f"discord_wh_url: {cfg.discord_wh_url}")
-logging.debug(f"telegram_api_id: {cfg.telegram_api_id}")
-logging.debug(f"telegram_api_hash: {cfg.telegram_api_hash}")
-logging.debug(f"talkgroups: {cfg.talkgroups}")
-logging.debug(f"callsigns: {cfg.callsigns}")
-logging.debug(f"noisy_calls: {cfg.noisy_calls}")
+logger.info("Configuration loaded:")
+logger.info(f"pushover_token: {cfg.pushover_token}")
+logger.info(f"pushover_user: {cfg.pushover_user}")
+logger.info(f"discord_wh_url: {cfg.discord_wh_url}")
+logger.info(f"telegram_api_id: {cfg.telegram_api_id}")
+logger.info(f"telegram_api_hash: {cfg.telegram_api_hash}")
+logger.info(f"talkgroups: {cfg.talkgroups}")
+logger.info(f"callsigns: {cfg.callsigns}")
+logger.info(f"noisy_calls: {cfg.noisy_calls}")
 
 #############################
 ##### Define Functions
@@ -76,7 +88,7 @@ def signal_handler(sig, frame):
     Returns:
         None
     """
-    logging.info("Shutting down gracefully...")
+    logger.info("Shutting down gracefully...")
     sio.disconnect()
     sys.exit(0)
 
@@ -119,9 +131,9 @@ def push_discord(wh_url, msg, thread_id=None):
             wh_url = f"{wh_url}?thread_id={thread_id}"
         webhook = DiscordWebhook(url=wh_url, content=msg)
         response = webhook.execute()
-        logging.info("Discord notification sent.")
+        logger.info("Discord notification sent.")
     except Exception as e:
-        logging.error(f"Failed to send Discord notification: {e}")
+        logger.error(f"Failed to send Discord notification: {e}")
 
 # Send pager notification via DAPNET. Disabled if not configured in config.py
 def push_dapnet(msg):
@@ -172,7 +184,7 @@ def construct_message(c):
     else:
         out += str(tg) + ' at '
     out += time + ' (' + str(duration) + ' seconds) US/Central'
-    logging.debug(f"Constructed message: {out}")
+    logger.info(f"Constructed message: {out}")
     return out
 
 #############################
@@ -180,7 +192,7 @@ def construct_message(c):
 
 @sio.event
 def connect():
-    logging.info('Connection established with Brandmeister network.')
+    logger.info('Connection established with Brandmeister network.')
 
 @sio.on("mqtt")
 def on_mqtt(data):
@@ -189,7 +201,7 @@ def on_mqtt(data):
     call = json.loads(data['payload'])
 
     # Log all messages received
-    logging.info(f"Received Brandmeister message: {json.dumps(call, indent=2)}")
+    logger.debug(f"Received Brandmeister message: {json.dumps(call, indent=2)}")
 
     tg = call["DestinationID"]
     callsign = call["SourceCall"]
@@ -200,21 +212,21 @@ def on_mqtt(data):
     now = int(time.time())
 
     if cfg.verbose and callsign in cfg.noisy_calls:
-        logging.info(f"Ignored noisy ham {callsign}")
+        logger.info(f"Ignored noisy ham {callsign}")
 
     elif event == 'Session-Stop' and callsign != '':
         if cfg.verbose:
             if str(tg) in map(str, cfg.talkgroups):
-                logging.debug(f"Processing event: Event={event}, Callsign={callsign}, Talkgroup={tg}")
+                logger.info(f"Processing event: Event={event}, Callsign={callsign}, Talkgroup={tg}")
         if callsign in cfg.callsigns:
             if callsign not in last_OM_activity:
-                logging.debug(f"First activity recorded for {callsign}")
+                logger.info(f"First activity recorded for {callsign}")
                 last_OM_activity[callsign] = 9999999
             inactivity = now - last_OM_activity[callsign]
-            logging.debug(f"Inactivity for {callsign}: {inactivity} seconds")
+            logger.info(f"Inactivity for {callsign}: {inactivity} seconds")
             if inactivity >= cfg.min_silence:
                 if tg in cfg.talkgroups and stop_time > 0:
-                    logging.debug(f"Activity matches monitored talkgroups: {tg}")
+                    logger.info(f"Activity matches monitored talkgroups: {tg}")
                     last_TG_activity[tg] = now
                 last_OM_activity[callsign] = now
                 notify = True
@@ -227,7 +239,7 @@ def on_mqtt(data):
                 if tg not in last_TG_activity or inactivity >= cfg.min_silence:
                     notify = True
                 elif cfg.verbose:
-                    logging.info(f"Ignored activity in TG {tg} from {callsign}: last action {inactivity} seconds ago.")
+                    logger.info(f"Ignored activity in TG {tg} from {callsign}: last action {inactivity} seconds ago.")
                 last_TG_activity[tg] = now
 
         if notify:
@@ -241,11 +253,11 @@ def on_mqtt(data):
                 thread_id = cfg.thread_map.get(str(tg))  # Fetch thread ID for the talkgroup
                 push_discord(cfg.discord_wh_url, construct_message(call), thread_id=thread_id)
                 if cfg.verbose:
-                    logging.info(f"Discord message {construct_message(call)} sent to thread {thread_id} for TG {tg}")
+                    logger.info(f"Discord message {construct_message(call)} sent to thread {thread_id} for TG {tg}")
 
 @sio.event
 def disconnect():
-    logging.warning('Disconnected from Brandmeister network.')
+    logger.warning('Disconnected from Brandmeister network.')
 
 #############################
 ##### Main Program
