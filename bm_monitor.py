@@ -55,10 +55,6 @@ if cfg.dapnet or cfg.telegram:
     import requests
     from requests.auth import HTTPBasicAuth
 
-# library only needed if Matrix is configured in config.py
-if cfg.matrix:
-    from nio import AsyncClient, AsyncClientConfig
-
 #############################
 ##### Define Variables
 
@@ -76,47 +72,8 @@ logger.info(f"telegram_api_hash: {cfg.telegram_api_hash}")
 logger.info(f"talkgroups: {cfg.talkgroups}")
 logger.info(f"callsigns: {cfg.callsigns}")
 logger.info(f"noisy_calls: {cfg.noisy_calls}")
-
-# Initialize Matrix client if enabled
-matrix_client = None
-matrix_connected = False
 if cfg.matrix:
-    try:
-        matrix_client = AsyncClient(cfg.matrix_homeserver, cfg.matrix_user_id)
-        matrix_client.access_token = cfg.matrix_access_token
-        # Initialize Matrix client in async context
-        async def init_matrix():
-            try:
-                # Test the connection with a sync
-                sync_response = await matrix_client.sync(timeout=30000)
-                if sync_response:
-                    logger.info("Matrix client initialized and synced successfully")
-                    global matrix_connected
-                    matrix_connected = True
-                    # Verify we can access the room
-                    try:
-                        await matrix_client.room_send(
-                            room_id=cfg.matrix_room_id,
-                            message_type="m.room.message",
-                            content={
-                                "msgtype": "m.text",
-                                "body": "BM Monitor starting up and connected to Matrix"
-                            }
-                        )
-                        logger.info(f"Successfully sent test message to Matrix room {cfg.matrix_room_id}")
-                    except Exception as e:
-                        logger.error(f"Failed to send test message to Matrix room: {e}")
-                        matrix_connected = False
-            except Exception as e:
-                logger.error(f"Failed to sync with Matrix server: {e}")
-                matrix_connected = False
-        
-        # Run the initialization
-        asyncio.run(init_matrix())
-        if not matrix_connected:
-            logger.error("Matrix client failed to initialize properly")
-    except Exception as e:
-        logger.error(f"Failed to create Matrix client: {e}")
+    logger.info(f"matrix_webhook_url: {cfg.matrix_webhook_url}")
 
 #############################
 ##### Define Functions
@@ -135,9 +92,6 @@ def signal_handler(sig, frame):
         None
     """
     logger.info("Shutting down gracefully...")
-    if matrix_client:
-        asyncio.run(matrix_client.close())
-        logger.info("Matrix client closed")
     sio.disconnect()
     sys.exit(0)
 
@@ -199,11 +153,12 @@ def push_dapnet(msg):
     dapnet_json = json.dumps({"text": msg, "callSignNames": cfg.dapnet_callsigns, "transmitterGroupNames": [cfg.dapnet_txgroup], "emergency": True})
     response = requests.post(cfg.dapnet_url, data=dapnet_json, auth=HTTPBasicAuth(cfg.dapnet_user,cfg.dapnet_pass))
 
-# Send notification to Matrix room
-async def push_matrix(msg):
-    """Send notification to a Matrix room.
+# Replace async Matrix push function with webhook version
+def push_matrix(msg):
+    """Send notification to Matrix room via webhook.
     
-    This function sends a message to a specified Matrix room using the matrix-nio client.
+    This function sends a message to a Matrix room using a webhook URL.
+    The webhook URL should be configured through a Matrix webhook bridge.
     
     Args:
         msg (str): The message content to be sent.
@@ -212,16 +167,18 @@ async def push_matrix(msg):
         None
     """
     try:
-        if matrix_client:
-            await matrix_client.room_send(
-                room_id=cfg.matrix_room_id,
-                message_type="m.room.message",
-                content={
-                    "msgtype": "m.text",
-                    "body": msg
-                }
-            )
-            logger.info("Matrix notification sent.")
+        response = requests.post(
+            cfg.matrix_webhook_url,
+            json={
+                "text": msg,
+                "format": "plain",  # or "html" if you want to support HTML formatting
+                "displayName": "BM Monitor"  # optional: customize the sender name
+            }
+        )
+        if response.status_code == 200:
+            logger.info("Matrix notification sent via webhook")
+        else:
+            logger.error(f"Failed to send Matrix notification: HTTP {response.status_code}")
     except Exception as e:
         logger.error(f"Failed to send Matrix notification: {e}")
 
@@ -338,16 +295,8 @@ def on_mqtt(data):
                     push_discord(cfg.discord_wh_url, message, thread_id=thread_id)
                     if cfg.verbose:
                         logger.info(f"Discord message sent to thread {thread_id} for TG {tg}")
-                if cfg.matrix and matrix_connected:
-                    try:
-                        asyncio.run(push_matrix(message))
-                    except Exception as e:
-                        logger.error(f"Failed to send Matrix message: {e}")
-                        # Try to reconnect Matrix client
-                        try:
-                            asyncio.run(init_matrix())
-                        except Exception as re:
-                            logger.error(f"Failed to reconnect to Matrix: {re}")
+                if cfg.matrix:
+                    push_matrix(message)
     except Exception as e:
         logger.error(f"Error processing MQTT message: {e}")
 
@@ -365,6 +314,4 @@ try:
     sio.wait()
 except Exception as e:
     logger.error(f"Failed to connect to Brandmeister network: {e}")
-    if matrix_client:
-        asyncio.run(matrix_client.close())
     sys.exit(1)
