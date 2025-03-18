@@ -3,3 +3,4 @@ websocket-client
 requests
 discord-webhook
 configparser
+matrix-nio

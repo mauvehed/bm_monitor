@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 import logging
 import signal
 import sys
+import asyncio
 
 # Configure logging
 # Create a logger
@@ -54,6 +55,10 @@ if cfg.dapnet or cfg.telegram:
     import requests
     from requests.auth import HTTPBasicAuth
 
+# library only needed if Matrix is configured in config.py
+if cfg.matrix:
+    from nio import AsyncClient, AsyncClientConfig
+
 #############################
 ##### Define Variables
 
@@ -72,6 +77,22 @@ logger.info(f"talkgroups: {cfg.talkgroups}")
 logger.info(f"callsigns: {cfg.callsigns}")
 logger.info(f"noisy_calls: {cfg.noisy_calls}")
 
+# Initialize Matrix client if enabled
+matrix_client = None
+if cfg.matrix:
+    matrix_client = AsyncClient(cfg.matrix_homeserver, cfg.matrix_user_id)
+    matrix_client.access_token = cfg.matrix_access_token
+    # Initialize Matrix client in async context
+    async def init_matrix():
+        try:
+            await matrix_client.sync()
+            logger.info("Matrix client initialized and synced")
+        except Exception as e:
+            logger.error(f"Failed to initialize Matrix client: {e}")
+    
+    # Run the initialization
+    asyncio.run(init_matrix())
+
 #############################
 ##### Define Functions
 
@@ -89,6 +110,9 @@ def signal_handler(sig, frame):
         None
     """
     logger.info("Shutting down gracefully...")
+    if matrix_client:
+        asyncio.run(matrix_client.close())
+        logger.info("Matrix client closed")
     sio.disconnect()
     sys.exit(0)
 
@@ -149,6 +173,32 @@ def push_dapnet(msg):
     """
     dapnet_json = json.dumps({"text": msg, "callSignNames": cfg.dapnet_callsigns, "transmitterGroupNames": [cfg.dapnet_txgroup], "emergency": True})
     response = requests.post(cfg.dapnet_url, data=dapnet_json, auth=HTTPBasicAuth(cfg.dapnet_user,cfg.dapnet_pass))
+
+# Send notification to Matrix room
+async def push_matrix(msg):
+    """Send notification to a Matrix room.
+    
+    This function sends a message to a specified Matrix room using the matrix-nio client.
+    
+    Args:
+        msg (str): The message content to be sent.
+        
+    Returns:
+        None
+    """
+    try:
+        if matrix_client:
+            await matrix_client.room_send(
+                room_id=cfg.matrix_room_id,
+                message_type="m.room.message",
+                content={
+                    "msgtype": "m.text",
+                    "body": msg
+                }
+            )
+            logger.info("Matrix notification sent.")
+    except Exception as e:
+        logger.error(f"Failed to send Matrix notification: {e}")
 
 # Construct the message to be sent
 def construct_message(c):
@@ -254,6 +304,8 @@ def on_mqtt(data):
                 push_discord(cfg.discord_wh_url, construct_message(call), thread_id=thread_id)
                 if cfg.verbose:
                     logger.info(f"Discord message {construct_message(call)} sent to thread {thread_id} for TG {tg}")
+            if cfg.matrix:
+                asyncio.run(push_matrix(construct_message(call)))
 
 @sio.event
 def disconnect():

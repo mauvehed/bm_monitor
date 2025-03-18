@@ -36,3 +36,10 @@ discord_wh_url = config.get('discord', 'wh_url')
 # Parse thread_map into a dictionary
 thread_map = dict([x.split(':') for x in config.get('discord', 'thread_map').split(',')])
 
+# Matrix configuration
+matrix = config.getboolean('matrix', 'enabled')
+matrix_homeserver = config.get('matrix', 'homeserver')
+matrix_user_id = config.get('matrix', 'user_id')
+matrix_access_token = config.get('matrix', 'access_token')
+matrix_room_id = config.get('matrix', 'room_id')
+
