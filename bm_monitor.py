@@ -79,19 +79,44 @@ logger.info(f"noisy_calls: {cfg.noisy_calls}")
 
 # Initialize Matrix client if enabled
 matrix_client = None
+matrix_connected = False
 if cfg.matrix:
-    matrix_client = AsyncClient(cfg.matrix_homeserver, cfg.matrix_user_id)
-    matrix_client.access_token = cfg.matrix_access_token
-    # Initialize Matrix client in async context
-    async def init_matrix():
-        try:
-            await matrix_client.sync()
-            logger.info("Matrix client initialized and synced")
-        except Exception as e:
-            logger.error(f"Failed to initialize Matrix client: {e}")
-    
-    # Run the initialization
-    asyncio.run(init_matrix())
+    try:
+        matrix_client = AsyncClient(cfg.matrix_homeserver, cfg.matrix_user_id)
+        matrix_client.access_token = cfg.matrix_access_token
+        # Initialize Matrix client in async context
+        async def init_matrix():
+            try:
+                # Test the connection with a sync
+                sync_response = await matrix_client.sync(timeout=30000)
+                if sync_response:
+                    logger.info("Matrix client initialized and synced successfully")
+                    global matrix_connected
+                    matrix_connected = True
+                    # Verify we can access the room
+                    try:
+                        await matrix_client.room_send(
+                            room_id=cfg.matrix_room_id,
+                            message_type="m.room.message",
+                            content={
+                                "msgtype": "m.text",
+                                "body": "BM Monitor starting up and connected to Matrix"
+                            }
+                        )
+                        logger.info(f"Successfully sent test message to Matrix room {cfg.matrix_room_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to send test message to Matrix room: {e}")
+                        matrix_connected = False
+            except Exception as e:
+                logger.error(f"Failed to sync with Matrix server: {e}")
+                matrix_connected = False
+        
+        # Run the initialization
+        asyncio.run(init_matrix())
+        if not matrix_connected:
+            logger.error("Matrix client failed to initialize properly")
+    except Exception as e:
+        logger.error(f"Failed to create Matrix client: {e}")
 
 #############################
 ##### Define Functions
@@ -244,75 +269,102 @@ def construct_message(c):
 def connect():
     logger.info('Connection established with Brandmeister network.')
 
-@sio.on("mqtt")
-def on_mqtt(data):
-    """Processes MQTT messages from the Brandmeister network and manages notification logic."""
-
-    call = json.loads(data['payload'])
-
-    # Log all messages received
-    logger.debug(f"Received Brandmeister message: {json.dumps(call, indent=2)}")
-
-    tg = call["DestinationID"]
-    callsign = call["SourceCall"]
-    start_time = call["Start"]
-    stop_time = call["Stop"]
-    event = call["Event"]
-    notify = False
-    now = int(time.time())
-
-    if cfg.verbose and callsign in cfg.noisy_calls:
-        logger.info(f"Ignored noisy ham {callsign}")
-
-    elif event == 'Session-Stop' and callsign != '':
-        if cfg.verbose:
-            if str(tg) in map(str, cfg.talkgroups):
-                logger.info(f"Processing event: Event={event}, Callsign={callsign}, Talkgroup={tg}")
-        if callsign in cfg.callsigns:
-            if callsign not in last_OM_activity:
-                logger.info(f"First activity recorded for {callsign}")
-                last_OM_activity[callsign] = 9999999
-            inactivity = now - last_OM_activity[callsign]
-            logger.info(f"Inactivity for {callsign}: {inactivity} seconds")
-            if inactivity >= cfg.min_silence:
-                if tg in cfg.talkgroups and stop_time > 0:
-                    logger.info(f"Activity matches monitored talkgroups: {tg}")
-                    last_TG_activity[tg] = now
-                last_OM_activity[callsign] = now
-                notify = True
-        elif tg in cfg.talkgroups and stop_time > 0:
-            if tg not in last_TG_activity:
-                last_TG_activity[tg] = 9999999
-            inactivity = now - last_TG_activity[tg]
-            duration = stop_time - start_time
-            if duration >= cfg.min_duration:
-                if tg not in last_TG_activity or inactivity >= cfg.min_silence:
-                    notify = True
-                elif cfg.verbose:
-                    logger.info(f"Ignored activity in TG {tg} from {callsign}: last action {inactivity} seconds ago.")
-                last_TG_activity[tg] = now
-
-        if notify:
-            if cfg.pushover:
-                push_pushover(construct_message(call))
-            if cfg.telegram:
-                push_telegram({'text': construct_message(call), 'chat_id': cfg.telegram_api_id, "disable_notification": True})
-            if cfg.dapnet:
-                push_dapnet(construct_message(call))
-            if cfg.discord:
-                thread_id = cfg.thread_map.get(str(tg))  # Fetch thread ID for the talkgroup
-                push_discord(cfg.discord_wh_url, construct_message(call), thread_id=thread_id)
-                if cfg.verbose:
-                    logger.info(f"Discord message {construct_message(call)} sent to thread {thread_id} for TG {tg}")
-            if cfg.matrix:
-                asyncio.run(push_matrix(construct_message(call)))
+@sio.event
+def connect_error(data):
+    logger.error(f'Connection to Brandmeister network failed: {data}')
 
 @sio.event
 def disconnect():
     logger.warning('Disconnected from Brandmeister network.')
 
+@sio.on("mqtt")
+def on_mqtt(data):
+    """Processes MQTT messages from the Brandmeister network and manages notification logic."""
+    try:
+        call = json.loads(data['payload'])
+        
+        # Log all messages received
+        logger.debug(f"Received Brandmeister message: {json.dumps(call, indent=2)}")
+        
+        tg = call["DestinationID"]
+        callsign = call["SourceCall"]
+        start_time = call["Start"]
+        stop_time = call["Stop"]
+        event = call["Event"]
+        notify = False
+        now = int(time.time())
+
+        if cfg.verbose and callsign in cfg.noisy_calls:
+            logger.info(f"Ignored noisy ham {callsign}")
+
+        elif event == 'Session-Stop' and callsign != '':
+            if cfg.verbose:
+                if str(tg) in map(str, cfg.talkgroups):
+                    logger.info(f"Processing event: Event={event}, Callsign={callsign}, Talkgroup={tg}")
+            if callsign in cfg.callsigns:
+                if callsign not in last_OM_activity:
+                    logger.info(f"First activity recorded for {callsign}")
+                    last_OM_activity[callsign] = 9999999
+                inactivity = now - last_OM_activity[callsign]
+                logger.info(f"Inactivity for {callsign}: {inactivity} seconds")
+                if inactivity >= cfg.min_silence:
+                    if tg in cfg.talkgroups and stop_time > 0:
+                        logger.info(f"Activity matches monitored talkgroups: {tg}")
+                        last_TG_activity[tg] = now
+                    last_OM_activity[callsign] = now
+                    notify = True
+            elif tg in cfg.talkgroups and stop_time > 0:
+                if tg not in last_TG_activity:
+                    last_TG_activity[tg] = 9999999
+                inactivity = now - last_TG_activity[tg]
+                duration = stop_time - start_time
+                if duration >= cfg.min_duration:
+                    if tg not in last_TG_activity or inactivity >= cfg.min_silence:
+                        notify = True
+                    elif cfg.verbose:
+                        logger.info(f"Ignored activity in TG {tg} from {callsign}: last action {inactivity} seconds ago.")
+                    last_TG_activity[tg] = now
+
+            if notify:
+                message = construct_message(call)
+                if cfg.pushover:
+                    push_pushover(message)
+                if cfg.telegram:
+                    push_telegram({'text': message, 'chat_id': cfg.telegram_api_id, "disable_notification": True})
+                if cfg.dapnet:
+                    push_dapnet(message)
+                if cfg.discord:
+                    thread_id = cfg.thread_map.get(str(tg))
+                    push_discord(cfg.discord_wh_url, message, thread_id=thread_id)
+                    if cfg.verbose:
+                        logger.info(f"Discord message sent to thread {thread_id} for TG {tg}")
+                if cfg.matrix and matrix_connected:
+                    try:
+                        asyncio.run(push_matrix(message))
+                    except Exception as e:
+                        logger.error(f"Failed to send Matrix message: {e}")
+                        # Try to reconnect Matrix client
+                        try:
+                            asyncio.run(init_matrix())
+                        except Exception as re:
+                            logger.error(f"Failed to reconnect to Matrix: {re}")
+    except Exception as e:
+        logger.error(f"Error processing MQTT message: {e}")
+
 #############################
 ##### Main Program
 
-sio.connect(url='https://api.brandmeister.network', socketio_path="/lh/socket.io", transports="websocket")
-sio.wait()
+try:
+    logger.info("Connecting to Brandmeister network...")
+    sio.connect(
+        url='https://api.brandmeister.network',
+        socketio_path="/lh/socket.io",
+        transports="websocket",
+        wait_timeout=30
+    )
+    sio.wait()
+except Exception as e:
+    logger.error(f"Failed to connect to Brandmeister network: {e}")
+    if matrix_client:
+        asyncio.run(matrix_client.close())
+    sys.exit(1)
