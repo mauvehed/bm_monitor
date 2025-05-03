@@ -67,6 +67,17 @@ logger.info(f"callsigns: {cfg.callsigns}")
 ##### Define Functions
 
 def signal_handler(sig, frame):
+    """Handles system signal interrupts for graceful application shutdown.
+
+    This function is designed to intercept system signals and perform a clean disconnection from the socket connection before terminating the application. It ensures that resources are properly released and the application exits smoothly.
+
+    Args:
+        sig (int): The signal number received.
+        frame (frame): The current stack frame.
+
+    Returns:
+        None
+    """
     logger.info("Shutting down gracefully...")
     sio.disconnect()
     sys.exit(0)
@@ -75,6 +86,18 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 def push_pushover(msg):
+    """Sends a notification to a Discord channel or thread via webhook.
+
+    This function sends a message to a specified Discord webhook URL, with optional support for posting to a specific thread. It utilizes the discord-webhook library to execute the webhook request.
+
+    Args:
+        wh_url (str): The Discord webhook URL.
+        msg (str): The message content to be sent.
+        thread_id (str, optional): The thread ID for posting to a specific thread. Defaults to None.
+
+    Returns:
+        None
+    """
     conn = http.client.HTTPSConnection("api.pushover.net:443")
     conn.request("POST", "/1/messages.json",
         urllib.parse.urlencode({
@@ -84,7 +107,14 @@ def push_pushover(msg):
         }), { "Content-type": "application/x-www-form-urlencoded" })
     conn.getresponse()
 
+# Send notification to Discord Channel or Thread via webhook
 def push_discord(wh_url, msg, thread_id=None):
+    """
+    Send notification to Discord Channel or Thread via webhook
+    :param wh_url: Discord webhook URL
+    :param msg: Message content
+    :param thread_id: Optional thread ID for posting to a specific thread
+    """
     try:
         if thread_id:
             wh_url = f"{wh_url}?thread_id={thread_id}"
@@ -94,13 +124,41 @@ def push_discord(wh_url, msg, thread_id=None):
     except Exception as e:
         logger.error(f"Failed to send Discord notification: {e}")
 
+# Send pager notification via DAPNET. Disabled if not configured in config.py
 def push_dapnet(msg):
+    """Sends a pager notification via the DAPNET (Digital Amateur Paging Network) service.
+
+    This function sends an emergency text message to specified DAPNET callsigns and transmitter groups using the configured DAPNET credentials. It prepares a JSON payload and submits a POST request to the DAPNET API.
+
+    Args:
+        msg (str): The message content to be sent via DAPNET.
+
+    Returns:
+        None
+    """
     dapnet_json = json.dumps({"text": msg, "callSignNames": cfg.dapnet_callsigns, 
                             "transmitterGroupNames": [cfg.dapnet_txgroup], "emergency": True})
     response = requests.post(cfg.dapnet_url, data=dapnet_json, 
                            auth=HTTPBasicAuth(cfg.dapnet_user,cfg.dapnet_pass))
-
+# Construct the message to be sent
 def construct_message(c):
+    """Constructs a formatted message string for a transmission event.
+
+    This function generates a human-readable description of a radio transmission, including details about the source, destination, time, and duration. It provides a comprehensive text representation of a communication event.
+
+    Args:
+        c (dict): A dictionary containing transmission details with keys including:
+            - DestinationID
+            - Stop
+            - Start
+            - TalkerAlias
+            - SourceCall
+            - SourceName
+            - DestinationName
+
+    Returns:
+        str: A formatted message string describing the transmission event.
+    """
     tg = c["DestinationID"]
     duration = c["Stop"] - c["Start"]
     time_str = dt.datetime.fromtimestamp(c["Start"], dt.timezone.utc).astimezone(
