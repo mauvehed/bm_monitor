@@ -1,5 +1,5 @@
 #
-# example configuration is now in config.ini.tmpl - copy to config.ini and change to your values
+# example configuration is now in config.tmpl - copy to config.ini and change to your values
 #
 import configparser
 
