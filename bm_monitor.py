@@ -249,16 +249,6 @@ def on_mqtt(data):
                 if cfg.verbose:
                     logger.info(f"Discord message {construct_message(call)} sent to thread {thread_id} for TG {tg}")
 
-#        if notify:
-#            msg = construct_message(call)
-#            if cfg.pushover:
-#                push_pushover(msg)
-#            if cfg.discord:
-#                thread_id = cfg.thread_map.get(str(tg))
-#                push_discord(cfg.discord_wh_url, msg, thread_id=thread_id)
-#                if cfg.verbose:
-#                    logger.info(f"Sent to Discord: {msg}")
-
 @sio.event
 def disconnect():
     logger.warning('Disconnected from Brandmeister network.')
