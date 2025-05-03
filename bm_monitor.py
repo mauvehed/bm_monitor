@@ -174,7 +174,10 @@ def construct_message(c):
         out = f'{c["TalkerAlias"]} was active on '
     else:
         out = f'{c["SourceCall"]} ({c["SourceName"]}) was active on '
-    
+    if c["DestinationName"] != '':
+        out += str(tg) + ' (' + c["DestinationName"] + ') at '
+    else:
+        out += str(tg) + ' at '    
     out += f'{tg} ({c["DestinationName"]}) at {time_str} ({duration} seconds) US/Central'
     logger.info(f"Constructed message: {out}")
     return out
@@ -194,9 +197,11 @@ def on_mqtt(data):
 
     tg = call["DestinationID"]
     callsign = call["SourceCall"]
+    start_time = call["Start"]
+    stop_time = call["Stop"]
     event = call["Event"]
-    now = int(time.time())
     notify = False
+    now = int(time.time())
 
     if cfg.verbose and callsign in cfg.noisy_calls:
         logger.info(f"Ignored noisy ham {callsign}")
@@ -232,14 +237,27 @@ def on_mqtt(data):
                     last_TG_activity[tg] = now
 
         if notify:
-            msg = construct_message(call)
             if cfg.pushover:
-                push_pushover(msg)
+                push_pushover(construct_message(call))
+            if cfg.telegram:
+                push_telegram({'text': construct_message(call), 'chat_id': cfg.telegram_api_id, "disable_notification": True})
+            if cfg.dapnet:
+                push_dapnet(construct_message(call))
             if cfg.discord:
-                thread_id = cfg.thread_map.get(str(tg))
-                push_discord(cfg.discord_wh_url, msg, thread_id=thread_id)
+                thread_id = cfg.thread_map.get(str(tg))  # Fetch thread ID for the talkgroup
+                push_discord(cfg.discord_wh_url, construct_message(call), thread_id=thread_id)
                 if cfg.verbose:
-                    logger.info(f"Sent to Discord: {msg}")
+                    logger.info(f"Discord message {construct_message(call)} sent to thread {thread_id} for TG {tg}")
+
+#        if notify:
+#            msg = construct_message(call)
+#            if cfg.pushover:
+#                push_pushover(msg)
+#            if cfg.discord:
+#                thread_id = cfg.thread_map.get(str(tg))
+#                push_discord(cfg.discord_wh_url, msg, thread_id=thread_id)
+#                if cfg.verbose:
+#                    logger.info(f"Sent to Discord: {msg}")
 
 @sio.event
 def disconnect():
