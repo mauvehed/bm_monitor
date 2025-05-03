@@ -60,8 +60,14 @@ last_OM_activity = {}
 recent_calls = {}  # Changed to track {callsign: last_notification_time}
 
 logger.info("Configuration loaded:")
+logger.info(f"pushover_token: {cfg.pushover_token}")
+logger.info(f"pushover_user: {cfg.pushover_user}")
+logger.info(f"discord_wh_url: {cfg.discord_wh_url}")
+logger.info(f"telegram_api_id: {cfg.telegram_api_id}")
+logger.info(f"telegram_api_hash: {cfg.telegram_api_hash}")
 logger.info(f"talkgroups: {cfg.talkgroups}")
 logger.info(f"callsigns: {cfg.callsigns}")
+logger.info(f"noisy_calls: {cfg.noisy_calls}")
 
 #############################
 ##### Define Functions
