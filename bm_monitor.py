@@ -150,6 +150,16 @@ def push_dapnet(msg):
     dapnet_json = json.dumps({"text": msg, "callSignNames": cfg.dapnet_callsigns, "transmitterGroupNames": [cfg.dapnet_txgroup], "emergency": True})
     response = requests.post(cfg.dapnet_url, data=dapnet_json, auth=HTTPBasicAuth(cfg.dapnet_user,cfg.dapnet_pass))
 
+# Sanitize text by removing control characters
+def sanitize_text(s):
+    """Remove all ASCII control characters (0-31, 127) from string and strip whitespace.
+
+    Handles None and non-string inputs by returning empty string.
+    """
+    if not s or not isinstance(s, str):
+        return ""
+    return ''.join(c for c in s if ord(c) >= 32 and ord(c) != 127).strip()
+
 # Construct the message to be sent
 def construct_message(c):
     """Constructs a formatted message string for a transmission event.
@@ -174,16 +184,19 @@ def construct_message(c):
     duration = c["Stop"] - c["Start"]
     # convert unix time stamp to human readable format
     time = dt.datetime.fromtimestamp(c["Start"], dt.timezone.utc).astimezone(ZoneInfo("US/Central")).strftime("%Y/%m/%d %H:%M")
+    # sanitize text fields by removing control characters
+    source_call = sanitize_text(c["SourceCall"])
+    source_name = sanitize_text(c["SourceName"])
+    talker_alias = sanitize_text(c["TalkerAlias"])
     # construct text message from various transmission properties
-    if c["TalkerAlias"]:
-        talker_alias = c["TalkerAlias"].replace('\n', ' ').replace('\r', ' ').strip()
+    # use TalkerAlias only if it contains meaningful info beyond just a callsign
+    # (i.e., has spaces indicating name/location, not just a bare/corrupted callsign)
+    if talker_alias and ' ' in talker_alias:
         out += talker_alias + ' was active on '
     else:
-        source_call = c["SourceCall"].replace('\n', ' ').replace('\r', ' ').strip()
-        source_name = c["SourceName"].replace('\n', ' ').replace('\r', ' ').strip()
         out += source_call + ' (' + source_name + ') was active on '
     if c["DestinationName"] != '':
-        dest_name = c["DestinationName"].replace('\n', ' ').replace('\r', ' ').strip()
+        dest_name = sanitize_text(c["DestinationName"])
         out += str(tg) + ' (' + dest_name + ') at '
     else:
         out += str(tg) + ' at '
