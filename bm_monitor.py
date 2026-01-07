@@ -189,8 +189,9 @@ def construct_message(c):
     source_name = sanitize_text(c["SourceName"])
     talker_alias = sanitize_text(c["TalkerAlias"])
     # construct text message from various transmission properties
-    # use TalkerAlias only if it's meaningful (not empty and case-insensitively different from SourceCall)
-    if talker_alias and talker_alias.lower() != source_call.lower():
+    # use TalkerAlias only if it contains meaningful info beyond just a callsign
+    # (i.e., has spaces indicating name/location, not just a bare/corrupted callsign)
+    if talker_alias and ' ' in talker_alias:
         out += talker_alias + ' was active on '
     else:
         out += source_call + ' (' + source_name + ') was active on '
