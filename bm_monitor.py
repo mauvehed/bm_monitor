@@ -176,11 +176,15 @@ def construct_message(c):
     time = dt.datetime.fromtimestamp(c["Start"], dt.timezone.utc).astimezone(ZoneInfo("US/Central")).strftime("%Y/%m/%d %H:%M")
     # construct text message from various transmission properties
     if c["TalkerAlias"]:
-        out += c["TalkerAlias"] + ' was active on '
+        talker_alias = c["TalkerAlias"].replace('\n', ' ').replace('\r', ' ').strip()
+        out += talker_alias + ' was active on '
     else:
-        out += c["SourceCall"] + ' (' + c["SourceName"] + ') was active on '
+        source_call = c["SourceCall"].replace('\n', ' ').replace('\r', ' ').strip()
+        source_name = c["SourceName"].replace('\n', ' ').replace('\r', ' ').strip()
+        out += source_call + ' (' + source_name + ') was active on '
     if c["DestinationName"] != '':
-        out += str(tg) + ' (' + c["DestinationName"] + ') at '
+        dest_name = c["DestinationName"].replace('\n', ' ').replace('\r', ' ').strip()
+        out += str(tg) + ' (' + dest_name + ') at '
     else:
         out += str(tg) + ' at '
     out += time + ' (' + str(duration) + ' seconds) US/Central'
