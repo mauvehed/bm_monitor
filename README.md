@@ -39,6 +39,8 @@ This script will push a notification to the following services:
 
 ## Change Log
 
+- 01/07/2026 - Point Release 1.3.6 - Fix TalkerAlias control character handling with fallback to SourceCall, fix timezone with Python tzdata package
+
 - 01/07/2026 - Point Release 1.3.5 - Fix Docker timezone errors by adding tzdata package
 
 - 01/07/2026 - Point Release 1.3.4 - Fix Discord message line breaks in callsign display
